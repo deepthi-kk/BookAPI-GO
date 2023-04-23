@@ -3,7 +3,7 @@ package main
 import(
 	"net/http"
 	"github.com/gin-gonic/gin"
-	//"errors"
+	"errors"
 )
 //to store our books we gng to use struct
 type book struct{
@@ -33,13 +33,80 @@ func creatBook(c *gin.Context){
 		return
 
 	}
+	books = append(books,newBook)
+	c.IndentedJSON(http.StatusCreated,newBook)
 
+}
+
+func bookById(c *gin.Context){
+	id := c.Param("id")
+	book, err := getBookById(id)
+	if err!=nil{
+		c.IndentedJSON(http.StatusNotFound , gin.H{"message" : "Book not found."})
+		return
+	}
+	c.IndentedJSON(http.StatusOK , book)
+}
+
+func getBookById(id string) (*book,error){
+	for i , b := range books{
+		if b.ID == id {
+			return &books[i] , nil
+		}
+	}
+	return nil, errors.New("book not found")
+}
+func checkoutBook(c *gin.Context) {
+	id, ok := c.GetQuery("id") //query parameter ex: ?x=2
+
+	if ok == false {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing id query parameter."})
+		return
+	}
+
+	book, err := getBookById(id)
+
+	if err != nil {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Book not found."})
+		return
+	}
+
+	if book.Quantity <= 0 {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Book not available."})
+		return
+	}
+
+	book.Quantity -= 1
+	c.IndentedJSON(http.StatusOK, book)
+}
+
+func returnBook(c *gin.Context) {
+	id, ok := c.GetQuery("id")
+
+	if !ok {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing id query parameter."})
+		return
+	}
+
+	book, err := getBookById(id)
+
+	if err != nil {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Book not found."})
+		return
+	}
+
+	book.Quantity += 1
+	c.IndentedJSON(http.StatusOK, book)
 }
 
 
 func main(){
 	router := gin.Default()
 	router.GET("/books",getBooks)
+	router.GET("/books/:id",bookById) // add : to make id as parameter
+	router.POST("/books",creatBook)
+	router.PATCH("/checkout", checkoutBook) // as we are updating that currently exists so  use patchh
+	router.PATCH("/return", returnBook)
 	router.Run("localhost:8000")
 }
 
